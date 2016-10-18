@@ -426,23 +426,29 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
   }
 
 
-  private static void tok(List<String> inputFileList, List<String> outputFileList, String charset, Pattern parseInsidePattern, String options, boolean preserveLines, boolean dump, boolean lowerCase) throws IOException {
+  private static void tok(List<String> inputFileList, List<String> outputFileList, String charset, Pattern parseInsidePattern, String options, boolean preserveLines, boolean dump, boolean lowerCase, boolean loop, boolean onePerLine, boolean prompt) throws IOException {
     final long start = System.nanoTime();
     long numTokens = 0;
     int numFiles = inputFileList.size();
     if (numFiles == 0) {
-      Reader stdin = IOUtils.readerFromStdin(charset);
-      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out, charset));
-      numTokens += tokReader(stdin, writer, parseInsidePattern, options, preserveLines, dump, lowerCase);
-      IOUtils.closeIgnoringExceptions(writer);
-
+      do {
+        if(prompt)
+          System.out.print('>');
+        Reader stdin = IOUtils.readerFromStdin(charset);
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out, charset));
+        numTokens += tokReader(stdin, writer, parseInsidePattern, options, preserveLines, dump, lowerCase, onePerLine);
+        if(loop)
+          writer.flush();
+        else
+          IOUtils.closeIgnoringExceptions(writer);
+      } while(loop);
     } else {
       for (int j = 0; j < numFiles; j++) {
         Reader r = IOUtils.readerFromString(inputFileList.get(j), charset);
         BufferedWriter out = (outputFileList == null) ?
           new BufferedWriter(new OutputStreamWriter(System.out, charset)) :
             new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFileList.get(j)), charset));
-        numTokens += tokReader(r, out, parseInsidePattern, options, preserveLines, dump, lowerCase);
+        numTokens += tokReader(r, out, parseInsidePattern, options, preserveLines, dump, lowerCase, onePerLine);
         r.close();
         IOUtils.closeIgnoringExceptions(out);
       } // end for j going through inputFileList
@@ -453,7 +459,7 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     System.err.printf("PTBTokenizer tokenized %d tokens at %.2f tokens per second.%n", numTokens, wordsPerSec);
   }
 
-  private static int tokReader(Reader r, BufferedWriter writer, Pattern parseInsidePattern, String options, boolean preserveLines, boolean dump, boolean lowerCase) throws IOException {
+  private static int tokReader(Reader r, BufferedWriter writer, Pattern parseInsidePattern, String options, boolean preserveLines, boolean dump, boolean lowerCase, boolean onePerLine) throws IOException {
     int numTokens = 0;
     boolean beginLine = true;
     boolean printing = (parseInsidePattern == null); // start off printing, unless you're looking for a start entity
@@ -485,6 +491,8 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
           if (PTBLexer.NEWLINE_TOKEN.equals(origStr)) {
             beginLine = true;
             writer.newLine();
+            if(onePerLine)
+              return numTokens;
           } else {
             if ( ! beginLine) {
               writer.write(' ');
@@ -730,7 +738,7 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     if (showHelp) {
       log.info("Usage: java edu.stanford.nlp.process.PTBTokenizer [options]* filename*");
       log.info("  options: -h|-help|-options tokenizerOptions|-preserveLines|-lowerCase|-dump|-ioFileList");
-      log.info("           -encoding encoding|-parseInside regex|-untok");
+      log.info("           -encoding encoding|-parseInside regex|-untok|-loop|-onePerLine|-prompt");
       return;
     }
 
@@ -747,6 +755,9 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     boolean lowerCase = PropertiesUtils.getBool(options, "lowerCase", false);
     boolean dump = PropertiesUtils.getBool(options, "dump", false);
     boolean untok = PropertiesUtils.getBool(options, "untok", false);
+    boolean loop = PropertiesUtils.getBool(options, "loop", false);
+    boolean onePerLine = PropertiesUtils.getBool(options, "onePerLine", false);
+    boolean prompt = PropertiesUtils.getBool(options, "prompt", false);
     String charset = options.getProperty("encoding", "utf-8");
     String parseInsideKey = options.getProperty("parseInside", null);
     Pattern parseInsidePattern = null;
@@ -788,7 +799,7 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     if (untok) {
       untok(inputFileList, outputFileList, charset);
     } else {
-      tok(inputFileList, outputFileList, charset, parseInsidePattern, optionsSB.toString(), preserveLines, dump, lowerCase);
+      tok(inputFileList, outputFileList, charset, parseInsidePattern, optionsSB.toString(), preserveLines, dump, lowerCase, loop, onePerLine, prompt);
     }
   } // end main
 
