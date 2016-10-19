@@ -425,6 +425,9 @@ public class PTBTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     return ptb2Text(words);
   }
 
+  private static void tok(List<String> inputFileList, List<String> outputFileList, String charset, Pattern parseInsidePattern, String options, boolean preserveLines, boolean dump, boolean lowerCase) throws IOException {
+    tok(inputFileList, outputFileList, charset, parseInsidePattern, options, preserveLines, dump, lowerCase, false, false, false);
+  }
 
   private static void tok(List<String> inputFileList, List<String> outputFileList, String charset, Pattern parseInsidePattern, String options, boolean preserveLines, boolean dump, boolean lowerCase, boolean loop, boolean onePerLine, boolean prompt) throws IOException {
     final long start = System.nanoTime();
